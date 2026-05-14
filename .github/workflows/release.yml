@@ -104,4 +104,5 @@ jobs:
           name: Release ${{ github.ref_name }}
           draft: false
           artifacts: "release_assets/*"
+          allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
