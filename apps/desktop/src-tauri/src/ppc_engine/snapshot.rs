@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::state::{HaltReason, MemoryWrite, PPCEngine, SPR_CTR, SPR_LR, SPR_XER};
+use super::state::{HaltReason, MemoryWrite, PPCEngine, SPR_CTR, SPR_GQR0, SPR_LR, SPR_XER};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegisterSnapshot {
@@ -16,6 +16,8 @@ pub struct RegisterSnapshot {
     pub cr: u32,
     pub msr: u32,
     pub changed_gpr: Vec<u32>,
+    /// GQR0–GQR7 (SPRs 912–919): paired-single quantization config.
+    pub gqr: [u32; 8],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,6 +59,7 @@ pub fn to_snapshot(engine: &PPCEngine) -> MachineStateSnapshot {
             cr: engine.cpu.cr,
             msr: engine.cpu.msr,
             changed_gpr: engine.changed_gpr.clone(),
+            gqr: std::array::from_fn(|i| engine.cpu.spr[SPR_GQR0 + i]),
         },
         fpu: FPUSnapshot {
             fpr: engine.cpu.fpr.to_vec(),

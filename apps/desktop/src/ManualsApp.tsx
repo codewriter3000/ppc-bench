@@ -50,7 +50,8 @@ export const ManualsApp: Component = () => {
   const ensureSelected = () => {
     const list = index();
     if (list && list.length > 0 && activeId() === null) {
-      void select(list[0]);
+      const first = list[0];
+      if (first) void select(first);
     }
   };
 

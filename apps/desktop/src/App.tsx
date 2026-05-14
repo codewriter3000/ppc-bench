@@ -47,6 +47,7 @@ const EMPTY_STATE: MachineStateSnapshot = {
     cr: 0,
     msr: 0,
     changed_gpr: [],
+    gqr: Array(8).fill(0),
   },
   fpu: { fpr: Array(32).fill([0, 0]), fpscr: 0, changed_fpr: [] },
   step_count: 0,

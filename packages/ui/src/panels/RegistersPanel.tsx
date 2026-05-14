@@ -31,8 +31,7 @@ export const RegistersPanel: Component<RegistersPanelProps> = (props) => {
             return (
               <div class={`regs__row${changed().has(i) ? " regs__row--changed" : ""}`}>
                 <span class="regs__label">{formatGPR(i)}</span>
-                <span>{hex32(v())}</span>
-                <span class="regs__dec">{(v() | 0).toString()}</span>
+                <span class="regs__val">{hex32(v())}</span>
               </div>
             );
           }}
@@ -45,12 +44,24 @@ export const RegistersPanel: Component<RegistersPanelProps> = (props) => {
         <span class="regs__label">XER</span> <span>{hex32(props.registers.xer)}</span>
         <span class="regs__label">MSR</span> <span>{hex32(props.registers.msr)}</span>
         <span class="regs__label">CR</span>
-        <span>
-          {hex32(props.registers.cr)}{" "}
-          <span class="regs__cr-nibbles">
-            [{Array.from({ length: 8 }, (_, i) => cr_nibble(props.registers.cr, i)).join(" ")}]
-          </span>
-        </span>
+        <span>{hex32(props.registers.cr)}</span>
+        <For each={Array.from({ length: 8 }, (_, i) => i)}>
+          {(n) => (
+            <>
+              <span />
+              <span class="regs__cr-field">CR{n}  {cr_nibble(props.registers.cr, n)}</span>
+            </>
+          )}
+        </For>
+        <hr class="regs__section-divider" />
+        <For each={props.registers.gqr ?? []}>
+          {(v, i) => (
+            <>
+              <span class="regs__label">GQR{i()}</span>
+              <span>{hex32(v)}</span>
+            </>
+          )}
+        </For>
       </div>
     </Panel>
   );

@@ -3,6 +3,7 @@ import { createStore, produce } from "solid-js/store";
 import { BreakpointsPanel, CallStackPanel, CodeEditorPanel, ControlBar, DisassemblyPanel, ExecutionLogPanel, FPUPanel, MemoryPanel, PPCBenchShell, RegistersPanel, ResizableColumn, SymbolTablePanel, } from "@ppc-bench/ui";
 import { DesktopTopbar } from "./DesktopTopbar";
 import { api } from "./tauri";
+import { openManualsWindow } from "./openManuals";
 const BASE_ADDR = 0x8000_0000 >>> 0;
 const DEFAULT_SOURCE = `# PPC-Bench — sample program
 # Computes r5 = 1 + 41 = 42, then returns.
@@ -186,7 +187,7 @@ export const App = () => {
     // Reactive subtitle for the topbar (and document.title for taskbar)
     const subtitle = createMemo(() => `PC ${hex32(pc())}  ·  ${Number(state.step_count).toLocaleString()} steps`);
     createEffect(() => { document.title = `PPC-Bench — ${subtitle()}`; });
-    return (<PPCBenchShell titleBar={<DesktopTopbar subtitle={subtitle()}/>} topBar={<ControlBar pc={pc()} stepCount={Number(state.step_count)} halted={halted()} haltReason={haltReason()} running={running()} onAssemble={onAssemble} onLoad={onLoad} onStep={onStep} onRun={onRun} onReset={onReset}/>} left={
+    return (<PPCBenchShell titleBar={<DesktopTopbar subtitle={subtitle()}/>} topBar={<ControlBar pc={pc()} stepCount={Number(state.step_count)} halted={halted()} haltReason={haltReason()} running={running()} onAssemble={onAssemble} onLoad={onLoad} onStep={onStep} onRun={onRun} onReset={onReset} onManuals={() => void openManualsWindow()}/>} left={
         // Single panel fills the column — no ResizableColumn needed.
         <CodeEditorPanel source={source()} onSourceChange={setSource} errors={assembleErrors()} readOnly={running()}/>} center={<ResizableColumn items={[
                 {

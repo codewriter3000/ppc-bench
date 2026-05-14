@@ -27,6 +27,11 @@
   color: var(--color-text);
 }
 
+.memory__input--short {
+  flex: 0 0 6ch;
+  width: 6ch;
+}
+
 .memory__input:focus {
   outline: none;
   border-color: var(--color-primary);

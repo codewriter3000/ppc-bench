@@ -14,6 +14,8 @@ export interface RegisterSnapshot {
   msr: number;
   /** Indices of GPRs that changed in the last step. */
   changed_gpr: readonly number[];
+  /** GQR0–GQR7 (SPRs 912–919): paired-single quantization config. */
+  gqr: readonly number[]; // length 8
 }
 
 /** Paired-single FPRs: ps0 and ps1 per register. */

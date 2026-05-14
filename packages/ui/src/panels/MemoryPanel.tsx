@@ -1,4 +1,4 @@
-import { type Component, For, Show, createSignal, createResource } from "solid-js";
+import { type Component, For, Show, createSignal, createResource, createMemo } from "solid-js";
 import type { MemoryWrite } from "@ppc-bench/kernel";
 import { asciiOf, hex32, hex8 } from "../styles/format";
 import { Panel } from "../shell/Panel";
@@ -9,7 +9,6 @@ export interface MemoryPanelProps {
   lastWrites: readonly MemoryWrite[];
   initialAddr?: number;
   bytesPerRow?: number;
-  rows?: number;
 }
 
 const parseAddr = (s: string): number | null => {
@@ -23,80 +22,96 @@ const parseAddr = (s: string): number | null => {
   return Number.isFinite(n) ? n >>> 0 : null;
 };
 
+const parseLen = (s: string): number | null => {
+  const n = parseInt(s.trim(), 10);
+  return Number.isFinite(n) && n > 0 && n <= 65536 ? n | 0 : null;
+};
+
 export const MemoryPanel: Component<MemoryPanelProps> = (props) => {
   const bpr = () => props.bytesPerRow ?? 16;
-  const rows = () => props.rows ?? 16;
   const [addr, setAddr] = createSignal(props.initialAddr ?? 0x8000_0000);
-  const [input, setInput] = createSignal(hex32(props.initialAddr ?? 0x8000_0000));
-  const len = () => bpr() * rows();
-  const [bytes] = createResource(
-    () => ({ addr: addr(), len: len(), ts: props.lastWrites }),
-    async (k) => await props.onReadMemory(k.addr, k.len),
-  );
+  const [addrInput, setAddrInput] = createSignal(hex32(props.initialAddr ?? 0x8000_0000));
+  const [len, setLen] = createSignal(256);
+  const [lenInput, setLenInput] = createSignal("256");
+  const rows = createMemo(() => Math.ceil(len() / bpr()));
 
-  const writeRanges = () => {
+  // Use a string key so === comparison works — a plain object `{}` always fails ===
+  // and would cause the resource to constantly re-fetch.
+  const resourceKey = createMemo(() => {
+    const ws = props.lastWrites;
+    return `${addr()}:${len()}:${ws.map(w => `${w.addr}+${w.size}`).join(",")}`;
+  });
+  const [bytes] = createResource(resourceKey, () => props.onReadMemory(addr(), len()));
+
+  // Reactive write-highlight set — updates when lastWrites changes
+  const writeSet = createMemo(() => {
     const s = new Set<number>();
-    for (const w of props.lastWrites) {
+    for (const w of props.lastWrites)
       for (let i = 0; i < w.size; i++) s.add((w.addr + i) >>> 0);
-    }
     return s;
-  };
+  });
 
   const onGo = () => {
-    const a = parseAddr(input());
+    const a = parseAddr(addrInput());
     if (a != null) setAddr(a);
   };
 
+  const onLenCommit = () => {
+    const n = parseLen(lenInput());
+    if (n != null) { setLen(n); setLenInput(String(n)); }
+    else setLenInput(String(len()));
+  };
+
   return (
-    <Panel
-      title="Memory"
-      grow
-      actions={<span style="color:var(--color-text-muted)">{len()} bytes</span>}
-    >
+    <Panel title="Memory" grow>
       <div class="memory__toolbar">
         <span class="memory__addr-label">addr</span>
         <input
           class="memory__input"
-          value={input()}
-          onInput={(e) => setInput(e.currentTarget.value)}
+          value={addrInput()}
+          onInput={(e) => setAddrInput(e.currentTarget.value)}
           onKeyDown={(e) => e.key === "Enter" && onGo()}
           spellcheck={false}
         />
         <button type="button" class="btn" onClick={onGo}>Go</button>
+        <span class="memory__addr-label">bytes</span>
+        <input
+          class="memory__input memory__input--short"
+          value={lenInput()}
+          onInput={(e) => setLenInput(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === "Enter" && onLenCommit()}
+          onBlur={onLenCommit}
+          spellcheck={false}
+        />
       </div>
-      <Show
-        when={bytes()}
-        fallback={<div class="memory__empty">Loading…</div>}
-      >
-        {(data) => {
-          const wr = writeRanges();
-          return (
-            <For each={Array.from({ length: rows() }, (_, r) => r)}>
-              {(r) => {
-                const base = (addr() + r * bpr()) >>> 0;
-                const chunk = () => data().slice(r * bpr(), r * bpr() + bpr());
-                return (
-                  <div class="memory__row">
-                    <span class="memory__addr">{hex32(base)}</span>
-                    <span>
-                      {Array.from(chunk()).map((b, i) => {
-                        const a = (base + i) >>> 0;
-                        return (
-                          <span
-                            class={`memory__byte${wr.has(a) ? " memory__byte--written" : ""}`}
-                          >
-                            {hex8(b)}{i < bpr() - 1 ? " " : ""}
-                          </span>
-                        );
-                      })}
-                    </span>
-                    <span>{Array.from(chunk()).map((b) => asciiOf(b)).join("")}</span>
-                  </div>
-                );
-              }}
-            </For>
-          );
-        }}
+      <Show when={bytes()} fallback={<div class="memory__empty">Loading…</div>}>
+        {(data) => (
+          <For each={Array.from({ length: rows() }, (_, r) => r)}>
+            {(r) => {
+              // createMemo inside a <For> item is valid — each item has its own
+              // reactive owner, so these memos update when addr/data change.
+              const base = createMemo(() => (addr() + r * bpr()) >>> 0);
+              const chunk = createMemo(() =>
+                Array.from(data().slice(r * bpr(), r * bpr() + bpr()))
+              );
+              return (
+                <div class="memory__row">
+                  <span class="memory__addr">{hex32(base())}</span>
+                  <span>
+                    <For each={chunk()}>
+                      {(b, i) => (
+                        <span class={`memory__byte${writeSet().has((base() + i()) >>> 0) ? " memory__byte--written" : ""}`}>
+                          {hex8(b)}{i() < bpr() - 1 ? " " : ""}
+                        </span>
+                      )}
+                    </For>
+                  </span>
+                  <span>{chunk().map(b => asciiOf(b)).join("")}</span>
+                </div>
+              );
+            }}
+          </For>
+        )}
       </Show>
     </Panel>
   );
