@@ -1,0 +1,73 @@
+/* ============================================================
+ * PPC-Bench design tokens — CSS custom properties
+ * Mirrors packages/ui/src/styles/tokens.ts
+ * Imported once via packages/ui/src/styles/tokens.css
+ * ============================================================ */
+
+:root {
+  /* ── Palette ── */
+  --color-primary:          #005fcc;
+  --color-primary-light:    #dce8ff;
+  --color-primary-hover:    #89b3f0;
+
+  /* ── Neutrals ── */
+  --color-border:           #c3cad8;
+  --color-border-soft:      #d9dde6;
+  --color-text:             #172033;
+  --color-text-muted:       #52607a;
+  --color-label:            #5a606c;
+
+  /* ── Surfaces ── */
+  --color-bg:               #f5f6f8;
+  --color-bg-hover:         #f0f3f6;
+  --color-surface:          #ffffff;
+  --color-panel:            #ffffff;
+  --color-gutter:           #eef0f4;
+
+  /* ── Semantics ── */
+  --color-warning-bg:       #fff5e6;
+  --color-warning-border:   #ffcc80;
+  --color-error:            #c41e3a;
+  --color-success:          #1f8a3c;
+
+  /* ── PPC-Bench ── */
+  --color-pc-row:           #dce8ff;
+  --color-breakpoint:       #c41e3a;
+  --color-changed:          #fff5e6;
+  --color-mem-write:        #ffe0b2;
+  --color-trace-dim:        #52607a;
+
+  /* ── Typography ── */
+  --font-ui:   Inter, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* ── Type scale ── */
+  --size-caption:  0.72rem;
+  --size-label:    0.75rem;
+  --size-body:     0.875rem;
+  --size-body-lg:  1rem;
+  --size-heading:  1.25rem;
+
+  /* ── Spacing ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* ── Radii ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* ── Chrome ── */
+  --toolbar-h:  44px;
+  --topbar-h:   48px;
+  --row-h:      22px;
+  --control-h:  32px;
+
+  /* ── Shadows ── */
+  --shadow-dropdown: 0 8px 24px rgba(23, 32, 51, 0.12);
+  --shadow-panel:    0 1px 2px rgba(23, 32, 51, 0.06);
+}

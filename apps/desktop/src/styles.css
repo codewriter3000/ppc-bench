@@ -1,0 +1,25 @@
+/* PPC-Bench global resets + scrollbar styling */
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; padding: 0; height: 100%; width: 100%; }
+body {
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  background: #f5f6f8;
+  color: #172033;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+button { font-family: inherit; }
+button:hover:not(:disabled) { background: #f0f3f6; }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+input:focus, textarea:focus { box-shadow: 0 0 0 2px rgba(0, 95, 204, 0.18); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #c3cad8;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #a4adbf; background-clip: padding-box; border: 2px solid transparent; }

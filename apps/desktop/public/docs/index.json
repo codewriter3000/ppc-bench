@@ -1,0 +1,8 @@
+[
+  { "id": "cpu-architecture", "title": "1. CPU Architecture", "file": "01-cpu-architecture.md" },
+  { "id": "instruction-table", "title": "2. Instruction Table", "file": "02-instruction-table.md" },
+  { "id": "instruction-reference", "title": "3. Instruction Reference", "file": "03-instruction-reference.md" },
+  { "id": "floating-point", "title": "4. Floating Point", "file": "04-floating-point.md" },
+  { "id": "gekko-extensions", "title": "5. Gekko Extensions (Paired-Single)", "file": "05-gekko-extensions.md" },
+  { "id": "assembler-syntax", "title": "6. Assembler Syntax", "file": "06-assembler-syntax.md" }
+]

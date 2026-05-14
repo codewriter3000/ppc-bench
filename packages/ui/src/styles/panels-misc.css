@@ -1,0 +1,93 @@
+/* ── Execution log panel ─────────────────────────────────────── */
+.exec-log__row {
+  display: grid;
+  grid-template-columns: 90px 90px 80px 1fr;
+  gap: var(--space-2);
+  padding: 1px var(--space-2);
+  font: 400 var(--size-body) var(--font-mono);
+  min-height: var(--row-h);
+  align-items: center;
+}
+
+.exec-log__row:hover { background: var(--color-bg-hover); }
+
+.exec-log__head {
+  display: grid;
+  grid-template-columns: 90px 90px 80px 1fr;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  font: 600 var(--size-caption) var(--font-ui);
+  color: var(--color-label);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-bg);
+  flex-shrink: 0;
+}
+
+.exec-log__addr  { color: var(--color-text-muted); }
+.exec-log__mnem  { color: var(--color-primary); font-weight: 600; }
+.exec-log__empty {
+  padding: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+/* ── Call stack panel ────────────────────────────────────────── */
+.call-stack__row {
+  display: grid;
+  grid-template-columns: 30px 90px 1fr;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  font: 400 var(--size-body) var(--font-mono);
+  min-height: var(--row-h);
+  align-items: center;
+  cursor: pointer;
+}
+
+.call-stack__row:hover { background: var(--color-bg-hover); }
+.call-stack__frame { color: var(--color-text-muted); }
+.call-stack__addr  { color: var(--color-primary); }
+.call-stack__sym   { color: var(--color-text); }
+.call-stack__empty {
+  padding: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+/* ── Breakpoints panel ───────────────────────────────────────── */
+.bps__row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  font: 400 var(--size-body) var(--font-mono);
+  min-height: var(--row-h);
+  align-items: center;
+}
+
+.bps__dot  { color: var(--color-breakpoint); }
+.bps__addr { color: var(--color-primary); }
+.bps__sym  { color: var(--color-text-muted); font-size: var(--size-caption); }
+.bps__empty {
+  padding: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+/* ── Symbol table panel ──────────────────────────────────────── */
+.syms__row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: var(--space-3);
+  padding: 2px var(--space-2);
+  font: 400 var(--size-body) var(--font-mono);
+  min-height: var(--row-h);
+  align-items: center;
+  cursor: pointer;
+}
+
+.syms__row:hover { background: var(--color-bg-hover); }
+.syms__addr      { color: var(--color-primary); }
+.syms__name      { color: var(--color-text); }
+.syms__empty {
+  padding: var(--space-3);
+  color: var(--color-text-muted);
+}

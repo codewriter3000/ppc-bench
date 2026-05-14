@@ -1,0 +1,42 @@
+/* ── FPU panel ───────────────────────────────────────────────── */
+.fpu__head {
+  display: grid;
+  grid-template-columns: 36px 1fr 1fr;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  font: 600 var(--size-caption) var(--font-ui);
+  color: var(--color-label);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.fpu__list {
+  padding: var(--space-1) 0;
+}
+
+.fpu__row {
+  display: grid;
+  grid-template-columns: 36px 1fr 1fr;
+  gap: var(--space-2);
+  padding: 1px var(--space-2);
+  align-items: center;
+  font: 400 var(--size-body) var(--font-mono);
+  border-radius: var(--radius-sm);
+  transition: background-color 0.9s ease-out;
+}
+
+.fpu__row--changed {
+  background: var(--color-changed);
+}
+
+.fpu__label { color: var(--color-label); font-weight: 600; }
+
+.fpu__foot {
+  border-top: 1px solid var(--color-border-soft);
+  padding: var(--space-2) var(--space-3);
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  column-gap: var(--space-2);
+  font: 400 var(--size-body) var(--font-mono);
+}

@@ -1,0 +1,80 @@
+/* ── Code Editor panel ───────────────────────────────────────── */
+.editor__wrap {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  flex: 1 1 auto;
+  min-height: 0;
+  font: 400 var(--size-body) var(--font-mono);
+  overflow: hidden;
+}
+
+.editor__gutter {
+  background: var(--color-gutter);
+  color: var(--color-text-muted);
+  border-right: 1px solid var(--color-border-soft);
+  padding: var(--space-2) var(--space-1);
+  text-align: right;
+  user-select: none;
+  font: 400 var(--size-body) var(--font-mono);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+.editor__gutter-line { position: relative; }
+.editor__gutter-line--error {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+.editor__box {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.editor__highlight {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: 400 var(--size-body) var(--font-mono);
+  line-height: 1.5;
+  white-space: pre;
+  tab-size: 4;
+  overflow: auto;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.editor__textarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: var(--space-2);
+  background: transparent;
+  color: transparent;
+  caret-color: var(--color-text);
+  font: 400 var(--size-body) var(--font-mono);
+  line-height: 1.5;
+  white-space: pre;
+  tab-size: 4;
+  z-index: 2;
+  overflow: auto;
+}
+
+.editor__errors {
+  border-top: 1px solid var(--color-warning-border);
+  background: var(--color-warning-bg);
+  color: var(--color-error);
+  padding: var(--space-2) var(--space-3);
+  font: 500 var(--size-label) var(--font-mono);
+  max-height: 30%;
+  overflow: auto;
+  flex-shrink: 0;
+}

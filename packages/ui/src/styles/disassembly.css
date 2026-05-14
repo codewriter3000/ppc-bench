@@ -1,0 +1,47 @@
+/* ── Disassembly panel ───────────────────────────────────────── */
+.disasm__empty {
+  padding: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.disasm__list {
+  padding: 4px 0;
+}
+
+.disasm__label {
+  padding: var(--space-2) var(--space-2) 0;
+  color: var(--color-success);
+  font: 600 var(--size-body) var(--font-mono);
+}
+
+.disasm__row {
+  display: grid;
+  grid-template-columns: 18px 96px 80px 100px 1fr;
+  gap: var(--space-2);
+  padding: 1px var(--space-2);
+  align-items: center;
+  font: 400 var(--size-body) var(--font-mono);
+  min-height: var(--row-h);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+
+.disasm__row:hover {
+  background: var(--color-bg-hover);
+}
+
+.disasm__row--current {
+  background: var(--color-pc-row);
+}
+
+.disasm__row--bp {
+  border-left-color: var(--color-breakpoint);
+}
+
+.disasm__bp-dot {
+  color: var(--color-breakpoint);
+}
+
+.disasm__addr  { color: var(--color-text-muted); }
+.disasm__raw   { color: var(--color-text-muted); }
+.disasm__mnem  { color: var(--color-primary); font-weight: 600; }

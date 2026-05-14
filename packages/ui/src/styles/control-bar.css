@@ -1,0 +1,80 @@
+/* ── ControlBar ─────────────────────────────────────────────── */
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  min-height: var(--toolbar-h);
+  flex-shrink: 0;
+}
+
+.control-bar__sep {
+  width: 1px;
+  height: 24px;
+  background: var(--color-border-soft);
+  flex-shrink: 0;
+}
+
+.control-bar__status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font: 500 var(--size-label) var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: 500 var(--size-body) var(--font-ui);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  border-color: var(--color-text-muted);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: #004fb0;
+  border-color: #004fb0;
+}
+
+/* ── Status pill ─────────────────────────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  font: 600 var(--size-caption) var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pill--ready   { background: var(--color-bg-hover);    color: var(--color-text-muted); }
+.pill--running { background: var(--color-primary-light); color: var(--color-primary);  }
+.pill--halted  { background: var(--color-warning-bg);   color: var(--color-error);     }

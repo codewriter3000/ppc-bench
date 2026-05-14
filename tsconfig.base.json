@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "baseUrl": ".",
+    "paths": {
+      "@ppc-bench/kernel": ["packages/kernel/src/index.ts"],
+      "@ppc-bench/kernel/*": ["packages/kernel/src/*"],
+      "@ppc-bench/ui": ["packages/ui/src/index.tsx"],
+      "@ppc-bench/ui/*": ["packages/ui/src/*"]
+    }
+  }
+}

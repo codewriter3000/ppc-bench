@@ -1,0 +1,38 @@
+/* ── Registers panel ─────────────────────────────────────────── */
+.regs__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: var(--space-2) 0;
+}
+
+.regs__row {
+  display: grid;
+  grid-template-columns: 36px 1fr 60px;
+  gap: var(--space-2);
+  padding: 1px var(--space-2);
+  align-items: center;
+  font: 400 var(--size-body) var(--font-mono);
+  border-radius: var(--radius-sm);
+  transition: background-color 0.9s ease-out;
+}
+
+.regs__row--changed {
+  background: var(--color-changed);
+}
+
+.regs__label { color: var(--color-label); font-weight: 600; }
+.regs__dec   { color: var(--color-text-muted); text-align: right; }
+
+.regs__spr {
+  border-top: 1px solid var(--color-border-soft);
+  padding: var(--space-2) var(--space-3);
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  row-gap: 2px;
+  column-gap: var(--space-2);
+  font: 400 var(--size-body) var(--font-mono);
+}
+
+.regs__cr-nibbles {
+  color: var(--color-text-muted);
+}

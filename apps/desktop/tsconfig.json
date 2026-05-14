@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "dist-tsc",
+    "rootDir": "src",
+    "noEmit": false,
+    "declaration": true
+  },
+  "references": [
+    { "path": "../../packages/kernel" },
+    { "path": "../../packages/ui" }
+  ],
+  "include": ["src/**/*"]
+}
