@@ -51,10 +51,11 @@ jobs:
         with:
           name: ${{ matrix.platform }}-build
           path: |
-            apps/desktop/src-tauri/target/release/*.msi
+            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
             apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
-            apps/desktop/src-tauri/target/release/bundle/macos/*.app
             apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
           retention-days: 1
 
   publish-release:
@@ -74,22 +75,25 @@ jobs:
         run: |
           mkdir -p release_assets
 
-          # Windows
-          if [ -f "artifacts/windows-build/"*.msi ]; then
-            cp artifacts/windows-build/*.msi release_assets/ppc-bench-${{ github.ref_name }}-windows.msi
+          # Windows (.msi preferred, .exe NSIS fallback)
+          msi=$(find artifacts/windows-build -name '*.msi' | head -1)
+          if [ -n "$msi" ]; then
+            cp "$msi" release_assets/ppc-bench-${{ github.ref_name }}-windows.msi
+          else
+            exe=$(find artifacts/windows-build -name '*.exe' | head -1)
+            [ -n "$exe" ] && cp "$exe" release_assets/ppc-bench-${{ github.ref_name }}-windows-setup.exe
           fi
 
-          # macOS
-          if [ -f "artifacts/macos-build/"*.dmg ]; then
-            cp artifacts/macos-build/*.dmg release_assets/ppc-bench-${{ github.ref_name }}-macos.dmg
-          elif [ -d "artifacts/macos-build/"*.app ]; then
-            cp -r artifacts/macos-build/*.app release_assets/
-          fi
+          # macOS (.dmg)
+          dmg=$(find artifacts/macos-build -name '*.dmg' | head -1)
+          [ -n "$dmg" ] && cp "$dmg" release_assets/ppc-bench-${{ github.ref_name }}-macos.dmg
 
-          # Linux
-          if [ -f "artifacts/linux-build/"*.AppImage ]; then
-            cp artifacts/linux-build/*.AppImage release_assets/ppc-bench-${{ github.ref_name }}-linux.AppImage
-          fi
+          # Linux (.AppImage and .deb)
+          appimage=$(find artifacts/linux-build -name '*.AppImage' | head -1)
+          [ -n "$appimage" ] && cp "$appimage" release_assets/ppc-bench-${{ github.ref_name }}-linux.AppImage
+
+          deb=$(find artifacts/linux-build -name '*.deb' | head -1)
+          [ -n "$deb" ] && cp "$deb" release_assets/ppc-bench-${{ github.ref_name }}-linux.deb
 
           ls -la release_assets/
 
