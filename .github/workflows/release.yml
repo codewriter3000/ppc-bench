@@ -6,28 +6,11 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      release_id: ${{ steps.create_release.outputs.id }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          draft: true
-          prerelease: false
-
   build:
-    needs: create-release
     strategy:
       matrix:
         include:
@@ -63,76 +46,58 @@ jobs:
       - name: Build desktop app
         run: npm run build:desktop
 
-      - name: Get build artifacts
-        id: artifacts
-        shell: bash
-        run: |
-          if [ "${{ matrix.platform }}" = "windows" ]; then
-            artifact=$(ls apps/desktop/src-tauri/target/release/*.msi 2>/dev/null | head -1)
-            artifact_name=$(basename "$artifact")
-          elif [ "${{ matrix.platform }}" = "macos" ]; then
-            artifact=$(ls apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg 2>/dev/null | head -1)
-            if [ -z "$artifact" ]; then
-              artifact=$(ls apps/desktop/src-tauri/target/release/bundle/macos/*.app 2>/dev/null | head -1)
-            fi
-            artifact_name=$(basename "$artifact")
-          else
-            artifact=$(ls apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage 2>/dev/null | head -1)
-            artifact_name=$(basename "$artifact")
-          fi
-
-          if [ -z "$artifact" ]; then
-            echo "No artifact found for ${{ matrix.platform }}"
-            exit 1
-          fi
-
-          echo "artifact=$artifact" >> $GITHUB_OUTPUT
-          echo "artifact_name=$artifact_name" >> $GITHUB_OUTPUT
-
-      - name: Upload Release Asset (Windows)
-        if: matrix.platform == 'windows'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ steps.artifacts.outputs.artifact }}
-          asset_name: ppc-bench-${{ github.ref_name }}-windows.msi
-          asset_content_type: application/x-msi
-
-      - name: Upload Release Asset (macOS)
-        if: matrix.platform == 'macos'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ steps.artifacts.outputs.artifact }}
-          asset_name: ppc-bench-${{ github.ref_name }}-macos.dmg
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release Asset (Linux)
-        if: matrix.platform == 'linux'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ steps.artifacts.outputs.artifact }}
-          asset_name: ppc-bench-${{ github.ref_name }}-linux.AppImage
-          asset_content_type: application/octet-stream
+          name: ${{ matrix.platform }}-build
+          path: |
+            apps/desktop/src-tauri/target/release/*.msi
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/release/bundle/macos/*.app
+            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+          retention-days: 1
 
   publish-release:
-    needs: [create-release, build]
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Publish Release
-        uses: actions/update-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          release_id: ${{ needs.create-release.outputs.release_id }}
+          path: artifacts
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          mkdir -p release_assets
+
+          # Windows
+          if [ -f "artifacts/windows-build/"*.msi ]; then
+            cp artifacts/windows-build/*.msi release_assets/ppc-bench-${{ github.ref_name }}-windows.msi
+          fi
+
+          # macOS
+          if [ -f "artifacts/macos-build/"*.dmg ]; then
+            cp artifacts/macos-build/*.dmg release_assets/ppc-bench-${{ github.ref_name }}-macos.dmg
+          elif [ -d "artifacts/macos-build/"*.app ]; then
+            cp -r artifacts/macos-build/*.app release_assets/
+          fi
+
+          # Linux
+          if [ -f "artifacts/linux-build/"*.AppImage ]; then
+            cp artifacts/linux-build/*.AppImage release_assets/ppc-bench-${{ github.ref_name }}-linux.AppImage
+          fi
+
+          ls -la release_assets/
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           draft: false
+          artifacts: "release_assets/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
