@@ -53,18 +53,41 @@ export interface AssembleError {
   message: string;
 }
 
+export interface AssembleSourceMapEntry {
+  line: number;
+  start_addr: number;
+  byte_len: number;
+}
+
 export interface AssembleResult {
   ok: boolean;
   bytes: number[];
   base_addr: number;
   symbols: ReadonlyArray<readonly [string, number]>;
+  source_map: readonly AssembleSourceMapEntry[];
   errors: AssembleError[];
+}
+
+export interface BinarySection {
+  name: string;
+  load_addr: number;
+  size: number;
+  is_executable: boolean;
+}
+
+export interface BinaryLoadResult {
+  snapshot: MachineStateSnapshot;
+  disasm_lines: readonly DisasmLine[];
+  sections: readonly BinarySection[];
+  format: string;
 }
 
 export interface MemoryWrite {
   addr: number;
   size: number;
 }
+
+export type WatchpointKind = "Write" | "Read" | "Access";
 
 /** Serde-default representation of the Rust `HaltReason` enum. */
 export type HaltReason =
@@ -73,6 +96,8 @@ export type HaltReason =
   | "Trap"
   | "MaxStepsReached"
   | { Breakpoint: number }
+  | { Watchpoint: { kind: WatchpointKind; address: number } }
+  | { Signal: { signal: number; exception_code: string | null } }
   | { InvalidInstruction: number }
   | { MemoryError: string };
 
@@ -80,6 +105,12 @@ export const haltReasonLabel = (h: HaltReason): string => {
   if (typeof h === "string") return h;
   if ("Breakpoint" in h)
     return `Breakpoint @ 0x${(h.Breakpoint >>> 0).toString(16).toUpperCase()}`;
+  if ("Watchpoint" in h)
+    return `${h.Watchpoint.kind.toLowerCase()} watch @ 0x${(h.Watchpoint.address >>> 0).toString(16).toUpperCase()}`;
+  if ("Signal" in h)
+    return h.Signal.exception_code
+      ? `Signal ${h.Signal.signal} (${h.Signal.exception_code})`
+      : `Signal ${h.Signal.signal}`;
   if ("InvalidInstruction" in h)
     return `Invalid 0x${(h.InvalidInstruction >>> 0).toString(16).toUpperCase()}`;
   if ("MemoryError" in h) return `MemError: ${h.MemoryError}`;

@@ -24,21 +24,44 @@ pub struct AssembleError {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssembleSourceMapEntry {
+    pub line: u32,
+    pub start_addr: u32,
+    pub byte_len: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssembleResult {
     pub ok: bool,
     pub bytes: Vec<u8>,
     pub base_addr: u32,
     pub symbols: Vec<(String, u32)>,
+    pub source_map: Vec<AssembleSourceMapEntry>,
     pub errors: Vec<AssembleError>,
+}
+
+/// What a single source line contributes to the output.
+enum TokenEntry {
+    /// A standard PPC instruction — always encodes to exactly 4 bytes.
+    Instruction(String, Vec<String>),
+    /// Already-resolved bytes (.string, .float, .double, .zero, etc.).
+    Bytes(Vec<u8>),
+    /// .long / .word — one 32-bit big-endian word per operand; may reference symbols.
+    Longs(Vec<String>),
+    /// .short / .hword — one 16-bit big-endian halfword per operand.
+    Shorts(Vec<String>),
+    /// .byte — one byte per operand.
+    ByteOps(Vec<String>),
 }
 
 /// Assemble `source` into a big-endian byte stream starting at [`BASE_ADDR`].
 pub fn assemble(source: &str) -> AssembleResult {
     let mut errors: Vec<AssembleError> = Vec::new();
     let mut symbols: Vec<(String, u32)> = Vec::new();
-    let mut tokens: Vec<(u32, String, Vec<String>)> = Vec::new();
+    // (source_line_no, addr, entry)
+    let mut tokens: Vec<(u32, u32, TokenEntry)> = Vec::new();
 
-    // ── Pass 1: tokenize, gather labels, build operand strings ────────
+    // ── Pass 1: tokenize, gather labels, compute sizes ────────────────
     let mut pc = BASE_ADDR;
     for (line_no, raw_line) in source.lines().enumerate() {
         let line_no = line_no as u32 + 1;
@@ -46,60 +69,315 @@ pub fn assemble(source: &str) -> AssembleResult {
         if line.is_empty() {
             continue;
         }
-        // Label?
-        if let Some(idx) = line.find(':') {
-            let (lbl, rest) = line.split_at(idx);
-            let lbl = lbl.trim();
-            if !is_ident(lbl) {
-                errors.push(AssembleError {
-                    line: line_no,
-                    message: format!("invalid label '{}'", lbl),
-                });
-                continue;
-            }
-            symbols.push((lbl.to_string(), pc));
-            line = rest[1..].trim().to_string();
-            if line.is_empty() {
-                continue;
+        // Label detection: ':' only introduces a label when it appears before
+        // any whitespace (so we don't confuse memory operands or string contents).
+        let colon_pos = line.find(':');
+        let first_ws  = line.find(char::is_whitespace);
+        if let Some(idx) = colon_pos {
+            if first_ws.map_or(true, |sp| idx < sp) {
+                let lbl = line[..idx].trim();
+                if !lbl.is_empty() {
+                    if !is_ident(lbl) {
+                        errors.push(AssembleError {
+                            line: line_no,
+                            message: format!("invalid label '{}'", lbl),
+                        });
+                        continue;
+                    }
+                    symbols.push((lbl.to_string(), pc));
+                    line = line[idx + 1..].trim().to_string();
+                    if line.is_empty() {
+                        continue;
+                    }
+                }
             }
         }
-        // Mnemonic + operands.
-        let (mnemonic, ops) = split_mnemonic(&line);
-        tokens.push((pc, mnemonic, ops));
+
+        // Split off mnemonic, keep rest raw for data directives.
+        let first_ws2 = line.find(char::is_whitespace);
+        let mnemonic  = match first_ws2 { Some(i) => line[..i].to_lowercase(), None => line.to_lowercase() };
+        let rest      = match first_ws2 { Some(i) => line[i..].trim(), None => "" };
+
+        // Section directives — no bytes emitted.
+        match mnemonic.as_str() {
+            ".data" | ".text" | ".section" | ".rodata" | ".bss" => continue,
+            _ => {}
+        }
+
+        // Data directives.
+        match mnemonic.as_str() {
+            ".long" | ".word" | ".int" | ".4byte" => {
+                let ops: Vec<String> = rest.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                let size = (ops.len() as u32) * 4;
+                tokens.push((line_no, pc, TokenEntry::Longs(ops)));
+                pc = pc.wrapping_add(size);
+                continue;
+            }
+            ".short" | ".hword" | ".2byte" => {
+                let ops: Vec<String> = rest.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                let size = (ops.len() as u32) * 2;
+                tokens.push((line_no, pc, TokenEntry::Shorts(ops)));
+                pc = pc.wrapping_add(size);
+                continue;
+            }
+            ".byte" => {
+                let ops: Vec<String> = rest.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                let size = ops.len() as u32;
+                tokens.push((line_no, pc, TokenEntry::ByteOps(ops)));
+                pc = pc.wrapping_add(size);
+                continue;
+            }
+            ".float" | ".single" => {
+                let mut data_bytes: Vec<u8> = Vec::new();
+                let mut ok = true;
+                for op in rest.split(',') {
+                    let op = op.trim();
+                    if op.is_empty() { continue; }
+                    match op.parse::<f32>() {
+                        Ok(v)  => data_bytes.extend_from_slice(&v.to_bits().to_be_bytes()),
+                        Err(_) => {
+                            errors.push(AssembleError { line: line_no, message: format!("invalid float '{}'", op) });
+                            ok = false;
+                        }
+                    }
+                }
+                if ok {
+                    let size = data_bytes.len() as u32;
+                    tokens.push((line_no, pc, TokenEntry::Bytes(data_bytes)));
+                    pc = pc.wrapping_add(size);
+                }
+                continue;
+            }
+            ".double" => {
+                let mut data_bytes: Vec<u8> = Vec::new();
+                let mut ok = true;
+                for op in rest.split(',') {
+                    let op = op.trim();
+                    if op.is_empty() { continue; }
+                    match op.parse::<f64>() {
+                        Ok(v)  => data_bytes.extend_from_slice(&v.to_bits().to_be_bytes()),
+                        Err(_) => {
+                            errors.push(AssembleError { line: line_no, message: format!("invalid double '{}'", op) });
+                            ok = false;
+                        }
+                    }
+                }
+                if ok {
+                    let size = data_bytes.len() as u32;
+                    tokens.push((line_no, pc, TokenEntry::Bytes(data_bytes)));
+                    pc = pc.wrapping_add(size);
+                }
+                continue;
+            }
+            ".string" | ".asciz" => {
+                match parse_string_literal(rest) {
+                    Ok(s) => {
+                        let mut data_bytes: Vec<u8> = s.into_bytes();
+                        data_bytes.push(0); // null terminator
+                        let size = data_bytes.len() as u32;
+                        tokens.push((line_no, pc, TokenEntry::Bytes(data_bytes)));
+                        pc = pc.wrapping_add(size);
+                    }
+                    Err(e) => errors.push(AssembleError { line: line_no, message: e }),
+                }
+                continue;
+            }
+            ".ascii" => {
+                match parse_string_literal(rest) {
+                    Ok(s) => {
+                        let data_bytes: Vec<u8> = s.into_bytes();
+                        let size = data_bytes.len() as u32;
+                        tokens.push((line_no, pc, TokenEntry::Bytes(data_bytes)));
+                        pc = pc.wrapping_add(size);
+                    }
+                    Err(e) => errors.push(AssembleError { line: line_no, message: e }),
+                }
+                continue;
+            }
+            ".zero" | ".space" => {
+                match rest.trim().parse::<u32>() {
+                    Ok(n) => {
+                        tokens.push((line_no, pc, TokenEntry::Bytes(vec![0u8; n as usize])));
+                        pc = pc.wrapping_add(n);
+                    }
+                    Err(_) => errors.push(AssembleError { line: line_no, message: format!("invalid count '{}'", rest) }),
+                }
+                continue;
+            }
+            ".align" | ".balign" => {
+                if let Ok(n) = rest.trim().parse::<u32>() {
+                    let align = if mnemonic == ".align" { 1u32 << n.min(16) } else { n };
+                    if align > 1 {
+                        let rem = pc % align;
+                        if rem != 0 {
+                            let pad = align - rem;
+                            tokens.push((line_no, pc, TokenEntry::Bytes(vec![0u8; pad as usize])));
+                            pc = pc.wrapping_add(pad);
+                        }
+                    }
+                } else {
+                    errors.push(AssembleError { line: line_no, message: format!("invalid alignment '{}'", rest) });
+                }
+                continue;
+            }
+            _ => {}
+        }
+
+        // Regular PPC instruction.
+        let ops: Vec<String> = if rest.is_empty() {
+            Vec::new()
+        } else {
+            rest.split(',').map(|s| s.trim().to_string()).collect()
+        };
+        tokens.push((line_no, pc, TokenEntry::Instruction(mnemonic, ops)));
         pc = pc.wrapping_add(4);
     }
 
     // ── Pass 2: encode ────────────────────────────────────────────────
-    let mut bytes: Vec<u8> = Vec::with_capacity(tokens.len() * 4);
-    for (i, (addr, mnemonic, operands)) in tokens.iter().enumerate() {
-        let line_no = i as u32 + 1;
-        match encode(*addr, mnemonic, operands, &symbols) {
-            Ok(word) => bytes.extend_from_slice(&word.to_be_bytes()),
-            Err(msg) => {
-                errors.push(AssembleError { line: line_no, message: msg });
-                bytes.extend_from_slice(&0u32.to_be_bytes());
+    let mut bytes: Vec<u8> = Vec::new();
+    for (line_no, addr, entry) in &tokens {
+        match entry {
+            TokenEntry::Instruction(mnemonic, operands) => {
+                match encode(*addr, mnemonic, operands, &symbols) {
+                    Ok(word) => bytes.extend_from_slice(&word.to_be_bytes()),
+                    Err(msg) => {
+                        errors.push(AssembleError { line: *line_no, message: msg });
+                        bytes.extend_from_slice(&0u32.to_be_bytes());
+                    }
+                }
+            }
+            TokenEntry::Bytes(data) => bytes.extend_from_slice(data),
+            TokenEntry::Longs(ops) => {
+                for op in ops {
+                    match parse_imm(op, &symbols) {
+                        Ok(v)  => bytes.extend_from_slice(&(v as u32).to_be_bytes()),
+                        Err(e) => {
+                            errors.push(AssembleError { line: *line_no, message: e });
+                            bytes.extend_from_slice(&0u32.to_be_bytes());
+                        }
+                    }
+                }
+            }
+            TokenEntry::Shorts(ops) => {
+                for op in ops {
+                    match parse_imm(op, &symbols) {
+                        Ok(v)  => bytes.extend_from_slice(&(v as u16).to_be_bytes()),
+                        Err(e) => {
+                            errors.push(AssembleError { line: *line_no, message: e });
+                            bytes.extend_from_slice(&0u16.to_be_bytes());
+                        }
+                    }
+                }
+            }
+            TokenEntry::ByteOps(ops) => {
+                for op in ops {
+                    match parse_imm(op, &symbols) {
+                        Ok(v)  => bytes.push(v as u8),
+                        Err(e) => {
+                            errors.push(AssembleError { line: *line_no, message: e });
+                            bytes.push(0);
+                        }
+                    }
+                }
             }
         }
     }
+
+    let source_map = tokens.iter()
+        .filter_map(|(line_no, addr, entry)| {
+            let byte_len = token_byte_len(entry);
+            if byte_len == 0 {
+                None
+            } else {
+                Some(AssembleSourceMapEntry {
+                    line: *line_no,
+                    start_addr: *addr,
+                    byte_len,
+                })
+            }
+        })
+        .collect();
 
     AssembleResult {
         ok: errors.is_empty(),
         bytes,
         base_addr: BASE_ADDR,
         symbols,
+        source_map,
         errors,
     }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
+fn token_byte_len(entry: &TokenEntry) -> u32 {
+    match entry {
+        TokenEntry::Instruction(_, _) => 4,
+        TokenEntry::Bytes(data) => data.len() as u32,
+        TokenEntry::Longs(ops) => (ops.len() as u32) * 4,
+        TokenEntry::Shorts(ops) => (ops.len() as u32) * 2,
+        TokenEntry::ByteOps(ops) => ops.len() as u32,
+    }
+}
+
 fn strip_comment(line: &str) -> &str {
+    let mut in_str = false;
+    let mut escape = false;
     for (i, c) in line.char_indices() {
-        if c == '#' || c == ';' {
-            return &line[..i];
+        if escape { escape = false; continue; }
+        if in_str {
+            if c == '\\' { escape = true; }
+            else if c == '"' { in_str = false; }
+        } else {
+            match c {
+                '"'      => in_str = true,
+                '#' | ';' => return &line[..i],
+                _        => {}
+            }
         }
     }
     line
+}
+
+/// Parse a double-quoted string literal, processing standard escape sequences.
+fn parse_string_literal(s: &str) -> Result<String, String> {
+    let s = s.trim();
+    if !s.starts_with('"') {
+        return Err(format!("expected string literal, got '{}'", s));
+    }
+    let mut result = String::new();
+    let mut chars  = s[1..].chars();
+    let mut closed = false;
+    while let Some(c) = chars.next() {
+        if c == '"' { closed = true; break; }
+        if c == '\\' {
+            match chars.next() {
+                Some('n')  => result.push('\n'),
+                Some('t')  => result.push('\t'),
+                Some('r')  => result.push('\r'),
+                Some('0')  => result.push('\0'),
+                Some('\\') => result.push('\\'),
+                Some('"')  => result.push('"'),
+                Some(c)    => { result.push('\\'); result.push(c); }
+                None       => return Err("unterminated string escape".to_string()),
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    if !closed {
+        return Err("unterminated string literal".to_string());
+    }
+    Ok(result)
 }
 
 fn is_ident(s: &str) -> bool {
@@ -177,6 +455,14 @@ fn parse_mem(s: &str, symbols: &[(String, u32)]) -> Result<(i64, u32, Option<u32
     let ra = parse_reg(parts[0], 'r')?;
     let rb = if parts.len() > 1 { Some(parse_reg(parts[1], 'r')?) } else { None };
     Ok((disp, ra, rb))
+}
+
+fn parse_u4_imm(s: &str, symbols: &[(String, u32)], what: &str) -> Result<u32, String> {
+    let value = parse_imm(s, symbols)?;
+    if !(0..=15).contains(&value) {
+        return Err(format!("{} out of range: {}", what, value));
+    }
+    Ok(value as u32)
 }
 
 // ── Encoders ──────────────────────────────────────────────────────────
@@ -445,9 +731,48 @@ fn encode(addr: u32, mnemonic: &str, ops: &[String], symbols: &[(String, u32)]) 
             need(ops, 1, "mfcr")?;
             Ok(x_form(31, parse_reg(&ops[0], 'r')?, 0, 0, 19, 0))
         }
+        "mfsr" => {
+            need(ops, 2, "mfsr")?;
+            let rd = parse_reg(&ops[0], 'r')?;
+            let sr = parse_u4_imm(&ops[1], symbols, "segment register")?;
+            Ok(x_form(31, rd, sr, 0, 595, 0))
+        }
+        "mtsr" => {
+            need(ops, 2, "mtsr")?;
+            let sr = parse_u4_imm(&ops[0], symbols, "segment register")?;
+            let rs = parse_reg(&ops[1], 'r')?;
+            Ok(x_form(31, rs, sr, 0, 210, 0))
+        }
+        "mfsrin" => {
+            need(ops, 2, "mfsrin")?;
+            let rd = parse_reg(&ops[0], 'r')?;
+            let rb = parse_reg(&ops[1], 'r')?;
+            Ok(x_form(31, rd, 0, rb, 659, 0))
+        }
+        "mtsrin" => {
+            need(ops, 2, "mtsrin")?;
+            let rs = parse_reg(&ops[0], 'r')?;
+            let rb = parse_reg(&ops[1], 'r')?;
+            Ok(x_form(31, rs, 0, rb, 242, 0))
+        }
         "sync" => Ok(x_form(31, 0, 0, 0, 598, 0)),
         "isync" => Ok((19 << 26) | (150 << 1)),
+        "rfi" => Ok((19 << 26) | (50 << 1)),
         "sc" => Ok(0x4400_0002),
+        "tlbie" => {
+            if ops.len() == 1 {
+                let rb = parse_reg(&ops[0], 'r')?;
+                Ok(x_form(31, 0, 0, rb, 306, 0))
+            } else if ops.len() == 2 {
+                let rb = parse_reg(&ops[0], 'r')?;
+                let rs = parse_reg(&ops[1], 'r')?;
+                Ok(x_form(31, rs, 0, rb, 306, 0))
+            } else {
+                Err(format!("tlbie expects 1 or 2 operands, got {}", ops.len()))
+            }
+        }
+        "tlbia" => Ok(x_form(31, 0, 0, 0, 370, 0)),
+        "tlbsync" => Ok(x_form(31, 0, 0, 0, 566, 0)),
 
         // Paired-singles (subset)
         "ps_add" => fa3(ops, 4, 21, rc_u),
@@ -465,6 +790,66 @@ fn encode(addr: u32, mnemonic: &str, ops: &[String], symbols: &[(String, u32)]) 
         "ps_merge11" => ps_merge(ops, 624, rc_u),
 
         _ => Err(format!("unknown mnemonic '{}'", mnemonic)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::assemble;
+    use crate::ppc_engine::disassembler::disassemble;
+
+    #[test]
+    fn assembles_and_disassembles_segment_register_family() {
+        let result = assemble(
+            "mtsr 0, r3\n\
+             mfsr r4, 0\n\
+             mtsrin r5, r6\n\
+             mfsrin r7, r8\n\
+             tlbie r9\n\
+             tlbie r10, r11\n\
+             tlbsync\n\
+             tlbia\n",
+        );
+
+        assert!(result.ok, "assembly failed: {:?}", result.errors);
+
+        let words: Vec<u32> = result
+            .bytes
+            .chunks_exact(4)
+            .map(|chunk| u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+            .collect();
+        assert_eq!(
+            words,
+            vec![
+                0x7C60_01A4,
+                0x7C80_04A6,
+                0x7CA0_31E4,
+                0x7CE0_4526,
+                0x7C00_4A64,
+                0x7D60_5264,
+                0x7C00_046C,
+                0x7C00_02E4,
+            ]
+        );
+
+        let disasm = disassemble(&result.bytes, result.base_addr);
+        let rendered: Vec<(String, String)> = disasm
+            .into_iter()
+            .map(|line| (line.mnemonic, line.operands))
+            .collect();
+        assert_eq!(
+            rendered,
+            vec![
+                ("mtsr".to_string(), "0, r3".to_string()),
+                ("mfsr".to_string(), "r4, 0".to_string()),
+                ("mtsrin".to_string(), "r5, r6".to_string()),
+                ("mfsrin".to_string(), "r7, r8".to_string()),
+                ("tlbie".to_string(), "r9".to_string()),
+                ("tlbie".to_string(), "r10, r11".to_string()),
+                ("tlbsync".to_string(), String::new()),
+                ("tlbia".to_string(), String::new()),
+            ]
+        );
     }
 }
 

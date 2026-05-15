@@ -14,10 +14,13 @@ export interface DesktopTopbarProps {
   title?: string;
   /** Optional subtitle / status shown next to the title. */
   subtitle?: string;
+  /** Optional settings action shown as a gear button in the titlebar controls. */
+  onSettings?: () => void;
 }
 
 export function DesktopTopbar(props: DesktopTopbarProps) {
   const [isMaximized, setIsMaximized] = createSignal(false);
+  const devWatermark = import.meta.env.VITE_DEV_WATERMARK ?? "";
   let removeResizeListener: (() => void) | undefined;
 
   const sync = async () => {
@@ -72,7 +75,7 @@ export function DesktopTopbar(props: DesktopTopbarProps) {
           gap: 16px;
           padding: 0 0 0 18px;
           border-bottom: 1px solid var(--color-border-soft, #d9dde6);
-          background: rgba(255,255,255,0.92);
+          background: var(--color-topbar-bg, rgba(255,255,255,0.92));
           backdrop-filter: blur(14px);
           color: var(--color-text, #172033);
           user-select: none;
@@ -99,6 +102,17 @@ export function DesktopTopbar(props: DesktopTopbarProps) {
           text-overflow: ellipsis;
           min-width: 0;
         }
+        .desktop-topbar__watermark {
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #fff;
+          background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+          padding: 2px 8px;
+          border-radius: 4px;
+          margin-left: auto;
+        }
         .desktop-topbar__controls {
           display: flex;
           align-items: center;
@@ -123,7 +137,7 @@ export function DesktopTopbar(props: DesktopTopbarProps) {
           transition: background-color 120ms ease, color 120ms ease;
         }
         .desktop-topbar__btn:hover {
-          background: #e6ebf3;
+          background: var(--color-topbar-hover, #e6ebf3);
           color: var(--color-text, #172033);
         }
         .desktop-topbar__btn:focus-visible {
@@ -131,8 +145,8 @@ export function DesktopTopbar(props: DesktopTopbarProps) {
           outline-offset: 2px;
         }
         .desktop-topbar__btn--close:hover {
-          background: rgba(209,67,67,0.13);
-          color: #9d2a2a;
+          background: var(--color-topbar-close-hover, rgba(209,67,67,0.13));
+          color: var(--color-topbar-close-text, #9d2a2a);
         }
         .desktop-topbar__glyph--minimize { display:block; transform: translateY(-3px); }
         .desktop-topbar__glyph--maximize {
@@ -150,9 +164,12 @@ export function DesktopTopbar(props: DesktopTopbarProps) {
           -webkit-text-stroke: 1px var(--color-text-muted, #52607a);
         }
         .desktop-topbar__btn--close:hover .desktop-topbar__glyph--close {
-          -webkit-text-stroke: 1px #9d2a2a;
+          -webkit-text-stroke: 1px var(--color-topbar-close-text, #9d2a2a);
         }
       `}</style>
+  {devWatermark && (
+          <span class="desktop-topbar__watermark">{devWatermark}</span>
+        )}
 
       {/* Drag region — double-click to toggle maximize */}
       <div
@@ -168,6 +185,17 @@ export function DesktopTopbar(props: DesktopTopbarProps) {
 
       {/* Window controls */}
       <div class="desktop-topbar__controls" role="group" aria-label="Window controls">
+        {props.onSettings && (
+          <button
+            type="button"
+            class="desktop-topbar__btn"
+            aria-label="Settings"
+            title="Settings"
+            onClick={props.onSettings}
+          >
+            <span aria-hidden="true">⚙</span>
+          </button>
+        )}
         <button
           type="button"
           class="desktop-topbar__btn"

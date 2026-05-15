@@ -56,11 +56,13 @@ pub fn dispatch(engine: &mut PPCEngine, inst: Inst, op: Op) -> StepOutcome {
 
         // ── CR / SPR / system ─────────────────────────────────────────
         Mcrf | Crand | Cror | Crxor | Crnand | Crnor | Creqv | Crandc | Crorc
-        | Mfcr | Mtcrf | Mfspr | Mtspr | Mfmsr | Mtmsr | Sync | Isync | Eieio
+        | Mfcr | Mtcrf | Mfspr | Mtspr | Mfmsr | Mtmsr | Mfsr | Mtsr | Mfsrin | Mtsrin
+        | Tlbie | Tlbia | Tlbsync | Sync | Isync | Eieio
         | Dcbz | Dcbi | Dcbf | Dcbst | Dcbt | Dcbtst | Icbi => {
             system::exec_system(engine, inst, op);
             StepOutcome::Next
         }
+        Rfi => system::exec_rfi(engine),
         Sc | Tw | Twi => StepOutcome::Halt(HaltReason::Trap),
 
         // ── Integer load / store ──────────────────────────────────────

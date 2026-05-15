@@ -27,8 +27,22 @@
   /* ── Semantics ── */
   --color-warning-bg:       #fff5e6;
   --color-warning-border:   #ffcc80;
+  --color-warning-text:     #7a4d07;
   --color-error:            #c41e3a;
   --color-success:          #1f8a3c;
+
+  --color-topbar-bg:        rgba(255, 255, 255, 0.92);
+  --color-topbar-hover:     #e6ebf3;
+  --color-topbar-close-hover: rgba(209, 67, 67, 0.13);
+  --color-topbar-close-text: #9d2a2a;
+  --color-focus-ring:       rgba(0, 95, 204, 0.18);
+  --color-scrollbar:        #c3cad8;
+  --color-scrollbar-hover:  #a4adbf;
+  --color-history-bg:       #fff7e6;
+  --color-history-border:   #d9c28f;
+  --color-history-text:     #7a4d07;
+  --color-history-stripe-start: rgba(189, 126, 40, 0.12);
+  --color-history-stripe-end: rgba(189, 126, 40, 0.04);
 
   /* ── PPC-Bench ── */
   --color-pc-row:           #dce8ff;
@@ -70,4 +84,50 @@
   /* ── Shadows ── */
   --shadow-dropdown: 0 8px 24px rgba(23, 32, 51, 0.12);
   --shadow-panel:    0 1px 2px rgba(23, 32, 51, 0.06);
+}
+
+:root[data-theme="dark"] {
+  --color-primary:          #7cb4ff;
+  --color-primary-light:    #21324d;
+  --color-primary-hover:    #9bc4ff;
+
+  --color-border:           #334256;
+  --color-border-soft:      #283548;
+  --color-text:             #ecf3ff;
+  --color-text-muted:       #9eb1c8;
+  --color-label:            #b7c6d9;
+
+  --color-bg:               #0f151d;
+  --color-bg-hover:         #1a2330;
+  --color-surface:          #151d28;
+  --color-panel:            #111923;
+  --color-gutter:           #121b26;
+
+  --color-warning-bg:       #332713;
+  --color-warning-border:   #7e5a1f;
+  --color-warning-text:     #ffd58a;
+  --color-error:            #ff7c8f;
+  --color-success:          #79d694;
+
+  --color-topbar-bg:        rgba(18, 25, 35, 0.92);
+  --color-topbar-hover:     #202c3c;
+  --color-topbar-close-hover: rgba(201, 80, 80, 0.18);
+  --color-topbar-close-text: #ff9a9a;
+  --color-focus-ring:       rgba(124, 180, 255, 0.24);
+  --color-scrollbar:        #39475a;
+  --color-scrollbar-hover:  #51637a;
+  --color-history-bg:       #2b2214;
+  --color-history-border:   #70592f;
+  --color-history-text:     #ffda9a;
+  --color-history-stripe-start: rgba(190, 136, 54, 0.22);
+  --color-history-stripe-end: rgba(190, 136, 54, 0.08);
+
+  --color-pc-row:           #1e3f66;
+  --color-breakpoint:       #ff7c8f;
+  --color-changed:          #332713;
+  --color-mem-write:        #4a3217;
+  --color-trace-dim:        #9eb1c8;
+
+  --shadow-dropdown: 0 14px 32px rgba(0, 0, 0, 0.35);
+  --shadow-panel:    0 8px 24px rgba(0, 0, 0, 0.18);
 }

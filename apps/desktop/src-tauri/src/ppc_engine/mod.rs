@@ -10,8 +10,10 @@
 //! The engine is single-threaded; the Tauri layer wraps it in a Mutex.
 
 pub mod assembler;
+pub mod binary_loader;
 pub mod commands;
 pub mod disassembler;
+pub mod dol;
 pub mod inst;
 pub mod instructions;
 pub mod interpreter;

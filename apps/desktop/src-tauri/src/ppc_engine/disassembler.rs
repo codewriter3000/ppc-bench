@@ -91,6 +91,19 @@ pub fn format_operands(inst: Inst, op: Op) -> String {
         Mtspr => format!("{}, r{}", inst.spr(), inst.rs()),
         Mfmsr => format!("r{}", inst.rd()),
         Mtmsr => format!("r{}", inst.rs()),
+        Mfsr => format!("r{}, {}", inst.rd(), inst.ra() as u32 & 0xf),
+        Mtsr => format!("{}, r{}", inst.ra() as u32 & 0xf, inst.rs()),
+        Mfsrin => format!("r{}, r{}", inst.rd(), inst.rb()),
+        Mtsrin => format!("r{}, r{}", inst.rs(), inst.rb()),
+        Tlbie => {
+            if inst.rs() == 0 {
+                format!("r{}", inst.rb())
+            } else {
+                format!("r{}, r{}", inst.rb(), inst.rs())
+            }
+        }
+        Tlbia | Tlbsync => String::new(),
+        Rfi => String::new(),
 
         // Integer load / store (D-form)
         Lbz | Lbzu | Lhz | Lhzu | Lha | Lhau | Lwz | Lwzu | Lmw

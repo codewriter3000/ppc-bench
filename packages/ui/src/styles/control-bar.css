@@ -26,6 +26,23 @@
   color: var(--color-text-muted);
 }
 
+.control-bar__history {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.control-bar__history-label {
+  min-width: 5.5rem;
+  text-align: center;
+  font: 600 var(--size-caption) var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.control-bar__menu {
+  position: relative;
+}
+
 /* ── Buttons ─────────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
@@ -62,6 +79,86 @@
 .btn--primary:hover:not(:disabled) {
   background: #004fb0;
   border-color: #004fb0;
+}
+
+.btn-group {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.btn-group > .btn + .btn {
+  margin-left: -1px;
+}
+
+.btn-group > .btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.btn-group > .btn:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.btn-group__main {
+  min-width: 8.75rem;
+  justify-content: center;
+}
+
+.btn--split-dropdown {
+  min-width: 2rem;
+  padding-inline: var(--space-2);
+  justify-content: center;
+}
+
+.btn--history {
+  min-width: 2.5rem;
+  justify-content: center;
+  padding-inline: var(--space-2);
+}
+
+.btn--history-live {
+  padding-inline: var(--space-2);
+}
+
+.control-bar__pause-actions > .btn {
+  justify-content: center;
+}
+
+.control-menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  z-index: 10;
+  min-width: 13rem;
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.control-menu__item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: calc(var(--control-h) - 4px);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  color: var(--color-text);
+  font: 500 var(--size-body) var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.control-menu__item:hover,
+.control-menu__item:focus-visible {
+  background: var(--color-bg-hover);
+  outline: none;
 }
 
 /* ── Status pill ─────────────────────────────────────────────── */

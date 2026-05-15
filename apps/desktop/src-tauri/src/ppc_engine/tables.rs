@@ -34,7 +34,8 @@ pub enum Op {
     Mfcr, Mtcrf,
 
     // ── System / SPR ───────────────────────────────────────────────────
-    Mfspr, Mtspr, Mfmsr, Mtmsr, Sync, Isync, Eieio, Sc, Twi, Tw,
+    Mfspr, Mtspr, Mfmsr, Mtmsr, Mfsr, Mtsr, Mfsrin, Mtsrin,
+    Tlbie, Tlbia, Tlbsync, Rfi, Sync, Isync, Eieio, Sc, Twi, Tw,
 
     // ── Cache (no-ops for the simulator, decoded for disasm) ──────────
     Dcbz, Dcbi, Dcbf, Dcbst, Dcbt, Dcbtst, Icbi,
@@ -107,6 +108,9 @@ impl Op {
             Mfcr => "mfcr", Mtcrf => "mtcrf",
 
             Mfspr => "mfspr", Mtspr => "mtspr", Mfmsr => "mfmsr", Mtmsr => "mtmsr",
+            Mfsr => "mfsr", Mtsr => "mtsr", Mfsrin => "mfsrin", Mtsrin => "mtsrin",
+            Tlbie => "tlbie", Tlbia => "tlbia", Tlbsync => "tlbsync",
+            Rfi => "rfi",
             Sync => "sync", Isync => "isync", Eieio => "eieio", Sc => "sc",
             Twi => "twi", Tw => "tw",
 
@@ -256,6 +260,7 @@ fn decode_table_19(inst: Inst) -> Op {
     match inst.subop10() {
         0 => Mcrf,
         16 => Bclr,
+        50 => Rfi,
         33 => Crnor,
         129 => Crandc,
         150 => Isync,
@@ -272,11 +277,18 @@ fn decode_table_19(inst: Inst) -> Op {
 
 fn decode_table_31(inst: Inst) -> Op {
     use Op::*;
-    // Note: subop10 encodes both XO and X forms. We treat OE as part of the
-    // mnemonic suffix (handled at print time), so we mask bit 9 of subop10.
-    // To keep the table simple we list canonical (OE=0) subops here.
-    let sub = inst.subop10() & 0x1ff; // strip OE bit
+    // Some XO-form arithmetic instructions fold OE into the top bit of the
+    // 10-bit subopcode, but other opcd=31 instructions legitimately use
+    // values above 511 (for example mfsr/mfsrin/tlbsync). Match those full
+    // subopcodes first, then fall back to an OE-masked table for arithmetic.
+    let sub = inst.subop10();
     match sub {
+        566 => return Tlbsync,
+        595 => return Mfsr,
+        659 => return Mfsrin,
+        _ => {}
+    }
+    match sub & 0x1ff {
         // Compare
         0 => Cmp,
         32 => Cmpl,
@@ -301,6 +313,10 @@ fn decode_table_31(inst: Inst) -> Op {
         467 => Mtspr,
         83 => Mfmsr,
         146 => Mtmsr,
+        210 => Mtsr,
+        242 => Mtsrin,
+        306 => Tlbie,
+        370 => Tlbia,
         598 => Sync, 854 => Eieio,
         // Cache
         1014 => Dcbz, 470 => Dcbi, 86 => Dcbf, 54 => Dcbst,

@@ -1,6 +1,7 @@
 export * from "./bus";
 export * from "./contracts";
 export * from "./events";
+export * from "./history";
 
 import { KernelBus } from "./bus";
 import type { KernelEvents } from "./events";

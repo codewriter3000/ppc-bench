@@ -3,5 +3,7 @@ export interface DesktopTopbarProps {
     title?: string;
     /** Optional subtitle / status shown next to the title. */
     subtitle?: string;
+    /** Optional settings action shown as a gear button in the titlebar controls. */
+    onSettings?: () => void;
 }
 export declare function DesktopTopbar(props: DesktopTopbarProps): import("solid-js").JSX.Element;

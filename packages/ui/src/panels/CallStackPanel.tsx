@@ -24,11 +24,12 @@ export const CallStackPanel: Component<CallStackPanelProps> = (props) => {
           {(frame, i) => (
             <div
               class="call-stack__row"
-              onClick={() => props.onJump?.(frame.call_site >>> 0)}
-              title="Jump to call site"
+              onClick={() => props.onJump?.(frame.return_to >>> 0)}
+              title="Jump to return address"
             >
               <span class="call-stack__frame">{props.frames.length - 1 - i()}</span>
               <span class="call-stack__addr">{hex32(frame.call_site)}</span>
+              <span class="call-stack__ret">{hex32(frame.return_to)}</span>
               <span class="call-stack__sym">{frame.symbol ?? "—"}</span>
             </div>
           )}

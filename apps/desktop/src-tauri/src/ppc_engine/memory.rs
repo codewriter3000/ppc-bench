@@ -1,13 +1,17 @@
 //! Flat big-endian memory for the PPC engine.
 //!
-//! Programs are loaded at `BASE_ADDR` (GameCube cached-RAM convention).
-//! Accesses below the base or past the buffer return [`MemError`].
+//! Programs are typically loaded at `BASE_ADDR` (GameCube cached-RAM
+//! convention), but the same backing bytes are also visible through the low
+//! physical RAM mirror and the uncached mirror. This matches the way Dolphin
+//! treats MEM1 when address translation is disabled.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Default load base — matches Dolphin's MEM1 cached mirror.
 pub const BASE_ADDR: u32 = 0x8000_0000;
+/// Uncached MEM1 mirror.
+pub const UNCACHED_BASE_ADDR: u32 = 0xC000_0000;
 /// Default RAM size: 16 MiB. Configurable later via settings.
 pub const RAM_SIZE: usize = 16 * 1024 * 1024;
 
@@ -32,11 +36,33 @@ impl Memory {
     }
 
     #[inline]
-    fn offset(&self, addr: u32, size: u32) -> Result<usize, MemError> {
-        if addr < self.base {
-            return Err(MemError::OutOfBounds { addr, len: size });
+    fn aliased_offset(&self, addr: u32) -> Option<usize> {
+        let ram_len = self.bytes.len() as u32;
+
+        if addr < ram_len {
+            return Some(addr as usize);
         }
-        let off = (addr - self.base) as usize;
+
+        if let Some(off) = addr.checked_sub(self.base) {
+            if off < ram_len {
+                return Some(off as usize);
+            }
+        }
+
+        if let Some(off) = addr.checked_sub(UNCACHED_BASE_ADDR) {
+            if off < ram_len {
+                return Some(off as usize);
+            }
+        }
+
+        None
+    }
+
+    #[inline]
+    fn offset(&self, addr: u32, size: u32) -> Result<usize, MemError> {
+        let off = self
+            .aliased_offset(addr)
+            .ok_or(MemError::OutOfBounds { addr, len: size })?;
         if off
             .checked_add(size as usize)
             .map(|e| e > self.bytes.len())
@@ -109,5 +135,33 @@ impl Memory {
 impl Default for Memory {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Memory, BASE_ADDR, UNCACHED_BASE_ADDR};
+
+    #[test]
+    fn cached_ram_is_visible_through_low_physical_mirror() {
+        let mut mem = Memory::new();
+        let addr = 0x0002_C100;
+        let value = 0x4C00_0064;
+
+        mem.write_u32(BASE_ADDR + addr, value).unwrap();
+
+        assert_eq!(mem.read_u32(addr).unwrap(), value);
+    }
+
+    #[test]
+    fn low_physical_writes_update_cached_and_uncached_mirrors() {
+        let mut mem = Memory::new();
+        let addr = 0x0002_C100;
+        let value = 0x3860_0001;
+
+        mem.write_u32(addr, value).unwrap();
+
+        assert_eq!(mem.read_u32(BASE_ADDR + addr).unwrap(), value);
+        assert_eq!(mem.read_u32(UNCACHED_BASE_ADDR + addr).unwrap(), value);
     }
 }

@@ -49,11 +49,26 @@ pub struct MemoryWrite {
     pub size: u32,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum WatchpointKind {
+    Write,
+    Read,
+    Access,
+}
+
+#[derive(Debug, Clone)]
+pub enum LaunchImage {
+    SyntheticProgram { bytes: Vec<u8>, load_addr: u32 },
+    OriginalBinary { bytes: Vec<u8>, extension: String },
+}
+
 /// Why the engine stopped a `step`/`run_until` call.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HaltReason {
     Running,
     Breakpoint(u32),
+    Watchpoint { kind: WatchpointKind, address: u32 },
+    Signal { signal: u8, exception_code: Option<String> },
     EndOfProgram,
     Trap,
     InvalidInstruction(u32),
@@ -77,6 +92,8 @@ pub struct PowerPCState {
     pub gpr: [u32; 32],
     /// Paired-singles FPRs: `fpr[i] = [ps0, ps1]`.
     pub fpr: [[f64; 2]; 32],
+    /// Segment registers SR0-SR15.
+    pub sr: [u32; 16],
     pub pc: u32,
     pub npc: u32,
     pub spr: Vec<u32>, // length 1024; Vec to keep stack small
@@ -91,6 +108,7 @@ impl PowerPCState {
         Self {
             gpr: [0; 32],
             fpr: [[0.0; 2]; 32],
+            sr: [0; 16],
             pc: BASE_ADDR,
             npc: BASE_ADDR,
             spr: vec![0; 1024],
@@ -162,6 +180,7 @@ pub struct PPCEngine {
     /// GPR / FPR indices that changed during the most recent step.
     pub changed_gpr: Vec<u32>,
     pub changed_fpr: Vec<u32>,
+    pub launch_image: Option<LaunchImage>,
 }
 
 impl PPCEngine {
@@ -180,6 +199,7 @@ impl PPCEngine {
             last_writes: Vec::new(),
             changed_gpr: Vec::new(),
             changed_fpr: Vec::new(),
+            launch_image: None,
         }
     }
 
@@ -188,6 +208,7 @@ impl PPCEngine {
         let symbols = std::mem::take(&mut self.symbols);
         let program_end = self.program_end;
         let breakpoints = std::mem::take(&mut self.breakpoints);
+        let launch_image = self.launch_image.take();
         self.cpu = PowerPCState::new();
         self.mem.clear();
         self.trace.clear();
@@ -202,6 +223,7 @@ impl PPCEngine {
         self.breakpoints = breakpoints;
         self.symbols = symbols;
         self.program_end = program_end;
+        self.launch_image = launch_image;
     }
 
     pub fn push_trace(&mut self, entry: TraceEntry) {

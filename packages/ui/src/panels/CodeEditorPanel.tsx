@@ -29,6 +29,14 @@ const KEYWORDS = new Set([
   "ps_add","ps_sub","ps_mul","ps_div","ps_madd","ps_msub",
   "ps_mr","ps_neg","ps_abs","ps_merge00","ps_merge01","ps_merge10","ps_merge11",
   "psq_l","psq_st","psq_lu","psq_stu","psq_lx","psq_stx",
+  // Section directives
+  ".data",".text",".rodata",".bss",".section",
+  // Data directives
+  ".byte",".short",".hword",".2byte",
+  ".long",".word",".int",".4byte",
+  ".float",".single",".double",
+  ".string",".asciz",".ascii",
+  ".zero",".space",".align",".balign",
 ]);
 
 type Token = { kind: string; text: string };
@@ -42,6 +50,17 @@ const tokenizeLine = (line: string): Token[] => {
     if (line[i] === "#" || line[i] === ";") {
       tokens.push({ kind: "comment", text: line.slice(i) });
       return tokens;
+    }
+    // Quoted string literal — consume including any '#' inside.
+    if (line[i] === '"') {
+      let j = i + 1;
+      while (j < line.length && line[j] !== '"') {
+        if (line[j] === '\\') j++; // skip escaped character
+        j++;
+      }
+      if (j < line.length) j++; // include closing quote
+      tokens.push({ kind: "string", text: line.slice(i, j) });
+      i = j; continue;
     }
     if (c === 0x20 || c === 0x09) {
       let j = i;
@@ -97,6 +116,7 @@ const CSS_COLOR: Record<string, string> = {
   reg:     "#a3007a",
   num:     "#a14b00",
   punct:   "var(--color-text-muted)",
+  string:  "#22863a",
   ident:   "var(--color-text)",
   ws:      "var(--color-text)",
   other:   "var(--color-text)",
@@ -143,6 +163,131 @@ export const CodeEditorPanel: Component<CodeEditorPanelProps> = (props) => {
     if (gutterEl) gutterEl.scrollTop = ta.scrollTop;
   };
 
+  const onKeyDown = (e: KeyboardEvent) => {
+    const ta = e.currentTarget as HTMLTextAreaElement;
+    const isTab = e.key === "Tab";
+    if (!isTab) return;
+
+    e.preventDefault();
+
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const isShiftTab = e.shiftKey;
+    const hasSelection = start !== end;
+
+    // Get the full source
+    const before = props.source.substring(0, start);
+    const selected = props.source.substring(start, end);
+    const after = props.source.substring(end);
+
+    // Find the start of the line containing the cursor
+    let lineStart = before.lastIndexOf("\n") + 1;
+
+    // Determine if we have a selection spanning multiple lines
+    const hasMultilineSelection = selected.includes("\n");
+
+    let newSource: string;
+    let newSelectionStart: number;
+    let newSelectionEnd: number;
+    const indent = "  "; // 2 spaces
+
+    if (hasMultilineSelection || (start !== end && selected !== "")) {
+      // Multi-line selection or non-empty selection
+      const beforeSelection = props.source.substring(0, start);
+      const linesBeforeStart = beforeSelection.split("\n");
+      const selectedStartLine = linesBeforeStart.length - 1;
+      const selectedEndLine = selectedStartLine + selected.split("\n").length - 1;
+
+      const lines = props.source.split("\n");
+      const processedLines = lines.map((line, i) => {
+        const isInSelection = i >= selectedStartLine && i <= selectedEndLine;
+        if (!isInSelection) return line;
+
+        if (isShiftTab) {
+          // Remove indentation
+          if (line.startsWith(indent)) return line.slice(indent.length);
+          return line;
+        } else {
+          // Add indentation
+          return indent + line;
+        }
+      });
+
+      newSource = processedLines.join("\n");
+
+      // Calculate new selection positions
+      if (isShiftTab) {
+        // For unindent, we need to check how many lines actually had indentation removed
+        let startAdjust = 0;
+        let endAdjust = 0;
+
+        // Count indent removals from start line
+        for (let i = selectedStartLine; i <= selectedEndLine; i++) {
+          const originalLine = lines[i]!;
+          const newLine = processedLines[i]!;
+          if (i === selectedStartLine) {
+            startAdjust = originalLine.length - newLine.length;
+          }
+          if (i === selectedEndLine) {
+            endAdjust = originalLine.length - newLine.length;
+          }
+        }
+
+        newSelectionStart = Math.max(lineStart, start - startAdjust);
+        newSelectionEnd = end - endAdjust;
+      } else {
+        // For indent, all selected lines get indented
+        newSelectionStart = start + indent.length;
+        newSelectionEnd = end + indent.length * (selectedEndLine - selectedStartLine + 1);
+      }
+    } else {
+      // No selection or empty selection - indent/unindent current line
+      const lineEnd = after.indexOf("\n");
+      const fullLine = before.slice(lineStart) + after.slice(0, lineEnd !== -1 ? lineEnd : after.length);
+
+      let newLineContent: string;
+      let lineIndentAdjust = 0;
+
+      if (isShiftTab) {
+        // Remove indentation
+        if (fullLine.startsWith(indent)) {
+          newLineContent = fullLine.slice(indent.length);
+          lineIndentAdjust = -indent.length;
+        } else {
+          newLineContent = fullLine;
+          lineIndentAdjust = 0;
+        }
+      } else {
+        // Add indentation
+        newLineContent = indent + fullLine;
+        lineIndentAdjust = indent.length;
+      }
+
+      const beforeLineStart = before.slice(0, lineStart);
+      const afterLineEnd = after.slice(lineEnd);
+      newSource = beforeLineStart + newLineContent + afterLineEnd;
+
+      // For cursor-only (no selection), move cursor with indentation
+      if (!hasSelection) {
+        newSelectionStart = start + lineIndentAdjust;
+        newSelectionEnd = start + lineIndentAdjust;
+      } else {
+        // For single-line selection, adjust both start and end
+        newSelectionStart = start + lineIndentAdjust;
+        newSelectionEnd = end + lineIndentAdjust;
+      }
+    }
+
+    props.onSourceChange(newSource);
+
+    // Restore selection after state updates
+    setTimeout(() => {
+      ta.selectionStart = newSelectionStart;
+      ta.selectionEnd = newSelectionEnd;
+      ta.focus();
+    }, 0);
+  };
+
   return (
     <Panel
       title="Source"
@@ -175,6 +320,7 @@ export const CodeEditorPanel: Component<CodeEditorPanelProps> = (props) => {
             value={props.source}
             onInput={(e) => props.onSourceChange(e.currentTarget.value)}
             onScroll={onScroll}
+            onKeyDown={onKeyDown}
             placeholder="# Write PPC assembly here — try:&#10;li r3, 1&#10;li r4, 41&#10;add r5, r3, r4&#10;blr"
           />
         </div>

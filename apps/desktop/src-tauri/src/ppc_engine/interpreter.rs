@@ -96,3 +96,32 @@ fn render(inst: Inst, op: Op) -> (String, String) {
     let operands = format_operands(inst, op);
     (mnemonic, operands)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::step;
+    use crate::ppc_engine::memory::BASE_ADDR;
+    use crate::ppc_engine::state::{PPCEngine, SPR_SRR0, SPR_SRR1};
+
+    #[test]
+    fn rfi_can_resume_from_low_physical_ram_mirror() {
+        let mut engine = PPCEngine::new();
+        let resume_addr = 0x0000_0100;
+
+        engine.mem.write_u32(BASE_ADDR, 0x4C00_0064).unwrap();
+        engine
+            .mem
+            .write_u32(BASE_ADDR + resume_addr, 0x3860_0001)
+            .unwrap();
+        engine.program_end = BASE_ADDR + resume_addr + 4;
+        engine.cpu.pc = BASE_ADDR;
+        engine.cpu.spr[SPR_SRR0] = resume_addr;
+        engine.cpu.spr[SPR_SRR1] = 0;
+
+        step(&mut engine).unwrap();
+        assert_eq!(engine.cpu.pc, resume_addr);
+
+        step(&mut engine).unwrap();
+        assert_eq!(engine.cpu.gpr[3], 1);
+    }
+}

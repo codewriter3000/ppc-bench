@@ -1,4 +1,4 @@
-import { type Component, For, Show, createSignal, createResource, createMemo } from "solid-js";
+import { type Component, For, Show, createSignal, createResource, createMemo, createEffect } from "solid-js";
 import type { MemoryWrite } from "@ppc-bench/kernel";
 import { asciiOf, hex32, hex8 } from "../styles/format";
 import { Panel } from "../shell/Panel";
@@ -9,6 +9,28 @@ export interface MemoryPanelProps {
   lastWrites: readonly MemoryWrite[];
   initialAddr?: number;
   bytesPerRow?: number;
+  refreshKey?: string | number;
+  presets?: readonly MemoryPreset[];
+  coverageRegions?: readonly MemoryCoverageRegion[];
+  jumpRequest?: MemoryJumpRequest | null;
+}
+
+export interface MemoryPreset {
+  label: string;
+  addr: number;
+  title?: string;
+  disabled?: boolean;
+}
+
+export interface MemoryJumpRequest {
+  addr: number;
+  token: number;
+}
+
+export interface MemoryCoverageRegion {
+  label: string;
+  base: number;
+  end: number;
 }
 
 const parseAddr = (s: string): number | null => {
@@ -34,12 +56,26 @@ export const MemoryPanel: Component<MemoryPanelProps> = (props) => {
   const [len, setLen] = createSignal(256);
   const [lenInput, setLenInput] = createSignal("256");
   const rows = createMemo(() => Math.ceil(len() / bpr()));
+  const activeCoverage = createMemo(() => {
+    const currentAddr = addr();
+    const currentRegions = props.coverageRegions ?? [];
+    if (!currentRegions.length) {
+      return null;
+    }
+
+    const match = currentRegions
+      .filter((region) => currentAddr >= region.base && currentAddr < region.end)
+      .sort((left, right) => (left.end - left.base) - (right.end - right.base))[0];
+    return match
+      ? `Cached range: ${match.label} ${hex32(match.base)}-${hex32((match.end - 1) >>> 0)}`
+      : "Cached range: outside snapshot cache";
+  });
 
   // Use a string key so === comparison works — a plain object `{}` always fails ===
   // and would cause the resource to constantly re-fetch.
   const resourceKey = createMemo(() => {
     const ws = props.lastWrites;
-    return `${addr()}:${len()}:${ws.map(w => `${w.addr}+${w.size}`).join(",")}`;
+    return `${props.refreshKey ?? ""}:${addr()}:${len()}:${ws.map(w => `${w.addr}+${w.size}`).join(",")}`;
   });
   const [bytes] = createResource(resourceKey, () => props.onReadMemory(addr(), len()));
 
@@ -55,6 +91,30 @@ export const MemoryPanel: Component<MemoryPanelProps> = (props) => {
     const a = parseAddr(addrInput());
     if (a != null) setAddr(a);
   };
+
+  const jumpToAddr = (nextAddr: number) => {
+    const normalized = nextAddr >>> 0;
+    setAddr(normalized);
+    setAddrInput(hex32(normalized));
+  };
+
+  createEffect(() => {
+    const request = props.jumpRequest;
+    if (!request) {
+      return;
+    }
+
+    jumpToAddr(request.addr);
+  });
+
+  createEffect(() => {
+    const initialAddr = props.initialAddr;
+    if (initialAddr == null) {
+      return;
+    }
+
+    jumpToAddr(initialAddr);
+  });
 
   const onLenCommit = () => {
     const n = parseLen(lenInput());
@@ -74,6 +134,19 @@ export const MemoryPanel: Component<MemoryPanelProps> = (props) => {
           spellcheck={false}
         />
         <button type="button" class="btn" onClick={onGo}>Go</button>
+        <For each={props.presets ?? []}>
+          {(preset) => (
+            <button
+              type="button"
+              class={`btn btn--memory-preset${!preset.disabled && (preset.addr >>> 0) === addr() ? " btn--memory-preset-active" : ""}`}
+              onClick={() => jumpToAddr(preset.addr)}
+              disabled={preset.disabled}
+              title={preset.title ?? `Jump to ${preset.label}`}
+            >
+              {preset.label}
+            </button>
+          )}
+        </For>
         <span class="memory__addr-label">bytes</span>
         <input
           class="memory__input memory__input--short"
@@ -84,6 +157,9 @@ export const MemoryPanel: Component<MemoryPanelProps> = (props) => {
           spellcheck={false}
         />
       </div>
+      <Show when={activeCoverage()}>
+        {(label) => <div class="memory__coverage">{label()}</div>}
+      </Show>
       <Show when={bytes()} fallback={<div class="memory__empty">Loading…</div>}>
         {(data) => (
           <For each={Array.from({ length: rows() }, (_, r) => r)}>
